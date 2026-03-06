@@ -2,10 +2,43 @@ import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Send, Bot, User, AlertCircle } from 'lucide-react';
 
 /**
- * Sends messages to the Groq API through our secure serverless proxy.
- * The API key never leaves the server — the frontend only calls /api/chat.
+ * Sends messages to the Gemini API.
+ * In Production: Calls our secure /api/chat serverless proxy.
+ * In Development: Hits Google directly if a VITE_GEMINI_API_KEY is present.
  */
-async function sendToGroq(messages) {
+async function sendToGemini(messages) {
+    const isDev = import.meta.env.DEV;
+    const localApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+    // 1. Try Direct API (Local Dev Only)
+    if (isDev && localApiKey) {
+        const SYSTEM_PROMPT = `You are a knowledgeable and friendly Bible study assistant. You help users understand the King James Version (KJV) of the Bible. Keep responses concise but thorough. Use a warm, respectful tone. When quoting scripture, use the KJV.`;
+
+        const geminiContents = messages.map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: msg.content }],
+        }));
+
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${localApiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                    contents: geminiContents,
+                }),
+            }
+        );
+
+        if (res.ok) {
+            const data = await res.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
+        }
+        // If direct fails, fall through to proxy
+    }
+
+    // 2. Try Serverless Proxy (Production)
     const res = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -76,7 +109,7 @@ export default function ChatBot({ onBack, initialContext }) {
                 .slice(-10)
                 .map(m => ({ role: m.role, content: m.content }));
 
-            const reply = await sendToGroq(contextMessages);
+            const reply = await sendToGemini(contextMessages);
             setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
         } catch (err) {
             setError(err.message || 'Failed to get a response. Please try again.');
