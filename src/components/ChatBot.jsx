@@ -2,48 +2,46 @@ import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Send, Bot, User, AlertCircle } from 'lucide-react';
 
 /**
- * Sends messages to the Gemini API.
+ * Sends messages to the Groq API.
  * In Production: Calls our secure /api/chat serverless proxy.
- * In Development: Hits Google directly if a VITE_GEMINI_API_KEY is present.
+ * In Development: Hits Groq directly if a VITE_GROQ_API_KEY is present.
  */
 async function sendToGemini(messages) {
     const isDev = import.meta.env.DEV;
-    const localApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const localApiKey = import.meta.env.VITE_GROQ_API_KEY;
+
+    const SYSTEM_PROMPT = `You are a knowledgeable and friendly Bible study assistant. You help users understand the King James Version (KJV) of the Bible. Keep responses concise but thorough. Use a warm, respectful tone. When quoting scripture, use the KJV.`;
 
     // 1. Try Direct API (Local Dev Only)
     if (isDev && localApiKey) {
-        const SYSTEM_PROMPT = `You are a knowledgeable and friendly Bible study assistant. You help users understand the King James Version (KJV) of the Bible. Keep responses concise but thorough. Use a warm, respectful tone. When quoting scripture, use the KJV.`;
-
-        const geminiContents = messages.map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }],
-        }));
-
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${localApiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-                    contents: geminiContents,
-                }),
-            }
-        );
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localApiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: SYSTEM_PROMPT },
+                    ...messages,
+                ],
+                max_tokens: 1024,
+                temperature: 0.7,
+            }),
+        });
 
         if (res.ok) {
             const data = await res.json();
-            return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
+            return data.choices[0].message.content;
         }
         // If direct fails, fall through to proxy
     }
 
-    // 2. Try Serverless Proxy (Production)
+    // 2. Serverless Proxy (Production)
     const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages }),
     });
 
