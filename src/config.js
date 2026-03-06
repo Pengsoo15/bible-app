@@ -1,14 +1,14 @@
 /**
- * Groq API Configuration
+ * Application Configuration
  * 
- * In development: set VITE_GROQ_API_KEY in a .env file
- * On Vercel: set it in Project Settings → Environment Variables
+ * NOTE: The Groq API key is NO LONGER stored here.
+ * It is securely handled by the serverless function in /api/chat.js
+ * and stored as an environment variable on Vercel.
+ * 
+ * The frontend calls /api/chat — the key never reaches the browser.
  */
 
-export const GROQ_CONFIG = {
-    apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
-    apiKey: import.meta.env.VITE_GROQ_API_KEY || '',
-    model: 'llama-3.3-70b-versatile',
-    maxTokens: 1024,
-    temperature: 0.7,
+// Add any future frontend-only config here
+export const APP_CONFIG = {
+    appName: 'Bible App',
 };

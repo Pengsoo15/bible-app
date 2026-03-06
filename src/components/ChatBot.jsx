@@ -1,45 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Send, Bot, User, AlertCircle } from 'lucide-react';
-import { GROQ_CONFIG } from '../config';
 
-const SYSTEM_PROMPT = `You are a knowledgeable and friendly Bible study assistant. You help users understand the King James Version (KJV) of the Bible. You can:
-- Explain the meaning and context of specific verses, chapters, or books
-- Provide historical and theological background
-- Answer questions about Bible characters, events, and themes
-- Help with cross-references between passages
-- Clarify archaic KJV language in modern terms
-
-Keep responses concise but thorough. Use a warm, respectful tone. When quoting scripture, use the KJV. If unsure about something, say so honestly.`;
-
+/**
+ * Sends messages to the Groq API through our secure serverless proxy.
+ * The API key never leaves the server — the frontend only calls /api/chat.
+ */
 async function sendToGroq(messages) {
-    if (!GROQ_CONFIG.apiKey || GROQ_CONFIG.apiKey === 'YOUR_GROQ_API_KEY_HERE') {
-        throw new Error('API_KEY_MISSING');
-    }
-
-    const res = await fetch(GROQ_CONFIG.apiUrl, {
+    const res = await fetch('/api/chat', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${GROQ_CONFIG.apiKey}`,
         },
-        body: JSON.stringify({
-            model: GROQ_CONFIG.model,
-            messages: [
-                { role: 'system', content: SYSTEM_PROMPT },
-                ...messages,
-            ],
-            max_tokens: GROQ_CONFIG.maxTokens,
-            temperature: GROQ_CONFIG.temperature,
-        }),
+        body: JSON.stringify({ messages }),
     });
 
     if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`API Error: ${res.status}`);
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `API Error: ${res.status}`);
     }
 
     const data = await res.json();
-    return data.choices[0].message.content;
+    return data.content;
 }
 
 export default function ChatBot({ onBack, initialContext }) {
@@ -98,11 +79,7 @@ export default function ChatBot({ onBack, initialContext }) {
             const reply = await sendToGroq(contextMessages);
             setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
         } catch (err) {
-            if (err.message === 'API_KEY_MISSING') {
-                setError('Please add your Groq API key in src/config.js');
-            } else {
-                setError('Failed to get a response. Check your API key or try again.');
-            }
+            setError(err.message || 'Failed to get a response. Please try again.');
         } finally {
             setIsLoading(false);
         }
