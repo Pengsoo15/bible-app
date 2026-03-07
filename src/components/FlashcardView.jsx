@@ -44,6 +44,7 @@ export default function FlashcardView({ onBack }) {
     const [isShuffled, setIsShuffled] = useState(false);
     const [isComplete, setIsComplete] = useState(false);
     const [bestScore, setBestScore] = useState(() => loadProgress().bestScore);
+    const [backCard, setBackCard] = useState(null);
 
     const currentCard = cards[currentIndex];
     const remaining = cards.length - currentIndex;
@@ -87,6 +88,7 @@ export default function FlashcardView({ onBack }) {
         setIsFlipped(false);
         setShowHint(false);
         setIsComplete(false);
+        setBackCard(null);
     }, [history]);
 
     const handleShuffle = () => {
@@ -100,6 +102,7 @@ export default function FlashcardView({ onBack }) {
         setHistory([]);
         setIsComplete(false);
         setIsShuffled(true);
+        setBackCard(null);
     };
 
     const handleReset = () => {
@@ -112,11 +115,15 @@ export default function FlashcardView({ onBack }) {
         setHistory([]);
         setIsComplete(false);
         setIsShuffled(false);
+        setBackCard(null);
     };
 
     const toggleFlip = useCallback(() => {
+        if (!isFlipped) {
+            setBackCard(currentCard);
+        }
         setIsFlipped((prev) => !prev);
-    }, []);
+    }, [isFlipped, currentCard]);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -270,8 +277,8 @@ export default function FlashcardView({ onBack }) {
                     {/* Back: Book Name */}
                     <div className="fc-card-face fc-card-back">
                         <div className="fc-card-content">
-                            <span className="fc-card-label">Book #{currentCard.number}</span>
-                            <span className="fc-card-answer">{currentCard.name}</span>
+                            <span className="fc-card-label">Book #{(backCard || currentCard).number}</span>
+                            <span className="fc-card-answer">{(backCard || currentCard).name}</span>
                         </div>
                     </div>
                 </div>
